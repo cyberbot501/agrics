@@ -11,7 +11,7 @@ export default function PurchaseModal({ product, onClose }: PurchaseModalProps) 
   const [quantity, setQuantity] = useState(1);
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
 
-  const whatsappNumber = '+2348012345678';
+  const whatsappNumber = '+2348036226669';
   const accountNumber = '0123456789';
   const bankName = 'First Bank of Nigeria';
   const accountName = 'Olupo Agriculture';
