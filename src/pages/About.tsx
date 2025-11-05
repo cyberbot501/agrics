@@ -23,7 +23,7 @@ export default function About() {
               </h2>
               <div className="space-y-4 text-gray-600 text-lg leading-relaxed">
                 <p>
-                  Olupo Agriculture is established to engage in business of Agricultural services,
+                  Olupo Agriculture Prodution Nigeria Limited is established to engage in business of Agricultural services,
                   produce and processing, marketing, distribution, wholesales and retails of kinds
                   of Cocoa, Cashew nuts and all categories of fruit products.
                 </p>
