@@ -1,9 +1,14 @@
 import { Target, Eye, Award, Users } from 'lucide-react';
+import farmBg from "../assets/camp.jpg";
 
 export default function About() {
   return (
     <div className="min-h-screen pt-16">
-      <section className="bg-gradient-to-br from-green-600 to-emerald-700 text-white py-20">
+      <section  style={{
+    backgroundImage: `url(${farmBg})`,
+  }}
+  className="relative bg-cover bg-center bg-no-repeat text-white py-20"
+>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">About Us</h1>

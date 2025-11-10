@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { ShoppingCart, Search, Filter } from 'lucide-react';
 import { supabase, Product } from '../lib/supabase';
 import PurchaseModal from '../components/PurchaseModal';
+import farmBg from "../assets/cap.jpg";
+import pot from "../assets/pot.jpg";
+import cow from "../assets/cow.jpg";
+import feed from "../assets/feed.jpg";
+import veg from "../assets/veg.jpg";
+import catf from "../assets/catf.jpg";
+
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -42,18 +49,22 @@ export default function Products() {
 
   const getCategoryIcon = (category: string) => {
     const icons: { [key: string]: string } = {
-      'Poultry': '🐔',
-      'Aquaculture': '🐟',
-      'Livestock': '🐄',
-      'Feed Services': '🌾',
-      'Vegetables': '🌶️',
+      'Poultry': pot,
+      'Aquaculture': catf,
+      'Livestock': cow,
+      'Feed Services': feed,
+      'Vegetables': veg,
     };
     return icons[category] || '🌱';
   };
 
   return (
     <div className="min-h-screen pt-16">
-      <section className="bg-gradient-to-br from-green-600 to-emerald-700 text-white py-20">
+      <section style={{
+    backgroundImage: `url(${farmBg})`,
+  }}
+  className="relative bg-cover bg-center bg-no-repeat text-white py-20"
+>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">Our Products</h1>
@@ -116,11 +127,11 @@ export default function Products() {
                   className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 overflow-hidden"
                 >
                   <div className="bg-gradient-to-br from-green-100 to-emerald-100 h-48 flex items-center justify-center">
-                    <span className="text-8xl">{getCategoryIcon(product.category)}</span>
+                   <img src={getCategoryIcon(product.category)} alt="" className='w-full h-full'/>
                   </div>
 
                   <div className="p-6">
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-0">
                       <div>
                         <h3 className="text-2xl font-bold text-gray-900 mb-1">
                           {product.name}
