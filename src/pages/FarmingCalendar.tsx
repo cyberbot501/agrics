@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Cloud, CloudRain, Sun, Wind, Droplets, Bot } from 'lucide-react';
 import { supabase, FarmingCalendar as FarmingCalendarType } from '../lib/supabase';
+import farmBg from "../assets/calendar.png";
 
 export default function FarmingCalendar() {
   const [calendarData, setCalendarData] = useState<FarmingCalendarType[]>([]);
@@ -100,7 +101,11 @@ export default function FarmingCalendar() {
 
   return (
     <div className="min-h-screen pt-16">
-      <section className="bg-gradient-to-br from-green-600 to-emerald-700 text-white py-20">
+      <section  style={{
+    backgroundImage: `url(${farmBg})`,
+  }}
+  className="relative bg-cover bg-center opacity-80 bg-no-repeat text-black py-20"
+>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">Farming Calendar</h1>
