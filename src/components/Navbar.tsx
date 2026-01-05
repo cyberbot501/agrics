@@ -26,7 +26,10 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
             onClick={() => onNavigate('home')}
           >
             <Sprout className="h-8 w-8 text-green-600" />
-            <span className="text-2xl font-bold text-green-700">Olupo Agriculture</span>
+            <div className='flex flex-col'>
+                <span className="text-2xl font-bold text-green-700">Olupo Agriculture</span>
+            <p className="text-sm text-gray-600">Production Nigeria Limited</p>
+            </div>
           </div>
 
           <div className="hidden md:flex space-x-8">
