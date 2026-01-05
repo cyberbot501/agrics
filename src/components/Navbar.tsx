@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Menu, X, Sprout } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+// import { Sprout } from 'lucide-react'
+import logo from "../assets/logo.png"
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
@@ -25,7 +27,8 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
             className="flex items-center space-x-2 cursor-pointer"
             onClick={() => onNavigate('home')}
           >
-            <Sprout className="h-8 w-8 text-green-600" />
+            {/* <Sprout className="h-8 w-8 text-green-600" /> */}
+            <img src={logo} alt=""  width={50} height={50}/>
             <div className='flex flex-col'>
                 <span className="text-2xl font-bold text-green-700">Olupo Agriculture</span>
             <p className="text-sm text-gray-600">Production Nigeria Limited</p>
