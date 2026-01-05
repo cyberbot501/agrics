@@ -8,6 +8,16 @@ import cow from "../assets/cow.jpg";
 import feed from "../assets/feed.jpg";
 import veg from "../assets/veg.jpg";
 import catf from "../assets/catf.jpg";
+import cows from "../assets/cowss.jpeg"
+import goat from "../assets/goats.jpeg"
+import sheep from "../assets/sheep.jpg"
+import turkey from "../assets/turkey.jfif"
+import chicken from "../assets/chicken.jpg"
+import drugs from "../assets/drugs.webp"
+import feedminning from "../assets/feedminning.jfif"
+import Habanero from "../assets/habe.jpg"
+import egg from "../assets/eggs.jpg"
+import bell from "../assets/sweet-bell-pepper.jpg"
 
 
 export default function Products() {
@@ -54,6 +64,16 @@ export default function Products() {
       'Livestock': cow,
       'Feed Services': feed,
       'Vegetables': veg,
+      'Cows': cows,
+      'Goats': goat,
+      'Sheeps': sheep,
+      'Turkeys': turkey,
+      'Chickens': chicken,
+      'Drugs': drugs,
+      'Feed Mining': feedminning,
+      'Habaneros': Habanero,
+      'Eggs': egg,
+      'Sweet Bell Peppers': bell,
     };
     return icons[category] || '🌱';
   };
