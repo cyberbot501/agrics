@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Cloud, CloudRain, Sun, Wind, Droplets, Bot } from 'lucide-react';
-import { supabase, FarmingCalendar as FarmingCalendarType } from '../lib/supabase';
+import { askFarmingAssistant } from '../lib/ai';
 import farmBg from "../assets/calendar.png";
 
+interface WeatherData {
+  temperature: number;
+  condition: string;
+  humidity: number;
+  windSpeed: number;
+  rainfall: string;
+}
+
 export default function FarmingCalendar() {
-  const [calendarData, setCalendarData] = useState<FarmingCalendarType[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [weatherData, setWeatherData] = useState({
-    temperature: 28,
-    condition: 'Partly Cloudy',
-    humidity: 75,
-    windSpeed: 12,
-    rainfall: 'Moderate',
-  });
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [calendarText, setCalendarText] = useState('');
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -24,38 +29,109 @@ export default function FarmingCalendar() {
   ];
 
   useEffect(() => {
-    fetchCalendarData();
-    simulateWeatherUpdate();
+    fetchWeatherData();
   }, []);
 
-  const fetchCalendarData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('farming_calendar')
-        .select('*')
-        .order('month', { ascending: true })
-        .order('crop_name', { ascending: true });
+  useEffect(() => {
+    generateCalendarForMonth(selectedMonth);
+  }, [selectedMonth]);
 
-      if (error) throw error;
-      setCalendarData(data || []);
+  const fetchWeatherData = async () => {
+    try {
+      setWeatherLoading(true);
+      setWeatherError(null);
+
+      // Abuja, Nigeria as a central reference point
+      const url =
+        'https://api.open-meteo.com/v1/forecast?' +
+        'latitude=9.0765&longitude=7.3986&current_weather=true&' +
+        'hourly=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&' +
+        'timezone=Africa%2FLagos';
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Weather API error: ${res.status}`);
+      }
+
+      const data = await res.json() as {
+        current_weather?: {
+          temperature?: number;
+          windspeed?: number;
+          weathercode?: number;
+        };
+        hourly?: {
+          time?: string[];
+          temperature_2m?: number[];
+          relative_humidity_2m?: number[];
+          precipitation?: number[];
+          wind_speed_10m?: number[];
+        };
+      };
+
+      const current = data.current_weather;
+      const hourly = data.hourly;
+
+      const temperature = current?.temperature ?? hourly?.temperature_2m?.[0] ?? 28;
+      const windSpeed = current?.windspeed ?? hourly?.wind_speed_10m?.[0] ?? 10;
+      const humidity = hourly?.relative_humidity_2m?.[0] ?? 70;
+      const recentPrecip =
+        hourly?.precipitation && hourly.precipitation.length
+          ? hourly.precipitation[0]
+          : 0;
+
+      let rainfall: string;
+      if (recentPrecip === 0) rainfall = 'None';
+      else if (recentPrecip < 2) rainfall = 'Light';
+      else if (recentPrecip < 10) rainfall = 'Moderate';
+      else rainfall = 'Heavy';
+
+      const weatherCode = current?.weathercode ?? 0;
+      let condition = 'Clear';
+      if (weatherCode === 0) condition = 'Clear Sky';
+      else if ([1, 2, 3].includes(weatherCode)) condition = 'Partly Cloudy';
+      else if ([45, 48].includes(weatherCode)) condition = 'Foggy';
+      else if ([51, 53, 55, 61, 63, 65].includes(weatherCode)) condition = 'Rainy';
+      else if ([71, 73, 75].includes(weatherCode)) condition = 'Snow';
+      else if ([80, 81, 82].includes(weatherCode)) condition = 'Showers';
+      else if ([95, 96, 99].includes(weatherCode)) condition = 'Thunderstorm';
+
+      const mapped: WeatherData = {
+        temperature,
+        condition,
+        humidity,
+        windSpeed,
+        rainfall,
+      };
+
+      setWeatherData(mapped);
     } catch (error) {
-      console.error('Error fetching calendar:', error);
+      console.error('Failed to fetch weather data:', error);
+      setWeatherError('Unable to load live weather data right now.');
+      // Fallback to a reasonable default so UI still shows something
+      setWeatherData({
+        temperature: 28,
+        condition: 'Partly Cloudy',
+        humidity: 75,
+        windSpeed: 12,
+        rainfall: 'Moderate',
+      });
     } finally {
-      setLoading(false);
+      setWeatherLoading(false);
     }
   };
 
-  const simulateWeatherUpdate = () => {
-    const currentMonth = new Date().getMonth() + 1;
-    const isRainySeason = currentMonth >= 4 && currentMonth <= 10;
-
-    setWeatherData({
-      temperature: isRainySeason ? 26 : 30,
-      condition: isRainySeason ? 'Rainy' : 'Sunny',
-      humidity: isRainySeason ? 85 : 65,
-      windSpeed: isRainySeason ? 15 : 10,
-      rainfall: isRainySeason ? 'Heavy' : 'Light',
-    });
+  const cleanMarkdown = (text: string): string => {
+    return text
+      .replace(/#{1,6}\s+/g, '') // Remove markdown headers (#, ##, ###, etc.)
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold (**text**)
+      .replace(/\*(.*?)\*/g, '$1') // Remove italic (*text*)
+      .replace(/`(.*?)`/g, '$1') // Remove code backticks
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove markdown links, keep text
+      .replace(/---+/g, '') // Remove horizontal rules
+      .replace(/^\s*[-*+]\s+/gm, '• ') // Convert markdown bullets to plain bullets
+      .replace(/^\s*\d+\.\s+/gm, '') // Remove numbered list markers
+      .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+      .trim();
   };
 
   const handleAiQuery = async () => {
@@ -64,40 +140,43 @@ export default function FarmingCalendar() {
     setAiLoading(true);
     setAiResponse('');
 
-    setTimeout(() => {
-      const responses: { [key: string]: string } = {
-        'maize': 'For maize farming in Nigeria: Plant at the beginning of the rainy season (April-May). Use improved varieties like Oba Super 2. Apply NPK fertilizer at 3-4 weeks after planting. Weed regularly and harvest when cobs are mature (90-110 days).',
-        'rice': 'Rice cultivation tips: Prepare land during dry season. Plant during early rains (April-June). Maintain 5-10cm water level for lowland rice. Apply fertilizer in splits. Control weeds early. Harvest when 80% of grains turn golden.',
-        'cassava': 'Cassava farming guide: Plant during early rains (March-April). Use disease-free stems. Space 1m x 1m. Weed at 1 and 3 months. Cassava is drought-tolerant. Harvest at 10-12 months for best yields.',
-        'weather': 'Current Nigerian farming seasons: Rainy season (April-October) is ideal for planting most crops. Dry season (November-March) is good for irrigation farming and harvesting. Plan accordingly for best yields.',
-        'fertilizer': 'Fertilizer application tips: Use NPK 15:15:15 for most crops. Apply at planting and top-dress at 3-4 weeks. Organic manure improves soil structure. Conduct soil tests for best results.',
-        'default': 'I can help with farming advice! Ask me about crop planting times, best practices for specific crops (maize, rice, cassava, yam), weather patterns, fertilizer application, pest control, or general farming tips for Nigeria.',
-      };
-
-      const query = aiQuery.toLowerCase();
-      let response = responses.default;
-
-      for (const [key, value] of Object.entries(responses)) {
-        if (query.includes(key)) {
-          response = value;
-          break;
-        }
-      }
-
-      setAiResponse(response);
+    try {
+      const response = await askFarmingAssistant(aiQuery);
+      setAiResponse(cleanMarkdown(response));
+    } catch (error) {
+      console.error('AI error:', error);
+      setAiResponse(
+        'Sorry, something went wrong while contacting the AI assistant. Please try again.'
+      );
+    } finally {
       setAiLoading(false);
-    }, 1500);
+    }
   };
 
-  const filteredData = calendarData.filter(item => item.month === selectedMonth);
+  const generateCalendarForMonth = async (monthNumber: number) => {
+    const monthName = months[monthNumber - 1];
+    setCalendarLoading(true);
+    setCalendarError(null);
+    setCalendarText('');
 
-  const groupedData = filteredData.reduce((acc, item) => {
-    if (!acc[item.crop_name]) {
-      acc[item.crop_name] = [];
+    const prompt = `You are an expert Nigerian agricultural extension officer.
+For ${monthName} in Nigeria, give a clear farming calendar in bullet points.
+Group activities by major crop categories (e.g. Maize, Rice, Cassava, Vegetables, Livestock, Poultry).
+For each category, list 3–6 key activities farmers should do in ${monthName}
+(land preparation, planting, weeding, fertiliser, pest control, harvesting, storage, etc.).
+Keep it concise and practical, using simple language.
+IMPORTANT: Do NOT use any markdown formatting like #, ##, **, or *. Use plain text only.`;
+
+    try {
+      const text = await askFarmingAssistant(prompt);
+      setCalendarText(cleanMarkdown(text));
+    } catch (error) {
+      console.error('Calendar AI error:', error);
+      setCalendarError('Unable to generate the farming calendar right now. Please try again.');
+    } finally {
+      setCalendarLoading(false);
     }
-    acc[item.crop_name].push(item);
-    return acc;
-  }, {} as { [key: string]: FarmingCalendarType[] });
+  };
 
   return (
     <div className="min-h-screen pt-16">
@@ -125,44 +204,58 @@ export default function FarmingCalendar() {
                 <h2 className="text-3xl font-bold text-gray-900">Weather Forecast</h2>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Sun className="h-5 w-5 text-orange-500" />
-                    <span className="text-sm text-gray-600">Temperature</span>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{weatherData.temperature}°C</p>
+              {weatherLoading && (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent" />
                 </div>
+              )}
 
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CloudRain className="h-5 w-5 text-blue-500" />
-                    <span className="text-sm text-gray-600">Condition</span>
+              {!weatherLoading && weatherError && (
+                <p className="text-sm text-red-600 mb-4">{weatherError}</p>
+              )}
+
+              {weatherData && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Sun className="h-5 w-5 text-orange-500" />
+                        <span className="text-sm text-gray-600">Temperature</span>
+                      </div>
+                      <p className="text-3xl font-bold text-gray-900">{weatherData.temperature}°C</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <CloudRain className="h-5 w-5 text-blue-500" />
+                        <span className="text-sm text-gray-600">Condition</span>
+                      </div>
+                      <p className="text-lg font-bold text-gray-900">{weatherData.condition}</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Droplets className="h-5 w-5 text-cyan-500" />
+                        <span className="text-sm text-gray-600">Humidity</span>
+                      </div>
+                      <p className="text-3xl font-bold text-gray-900">{weatherData.humidity}%</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Wind className="h-5 w-5 text-gray-500" />
+                        <span className="text-sm text-gray-600">Wind Speed</span>
+                      </div>
+                      <p className="text-3xl font-bold text-gray-900">{weatherData.windSpeed} km/h</p>
+                    </div>
                   </div>
-                  <p className="text-lg font-bold text-gray-900">{weatherData.condition}</p>
-                </div>
 
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Droplets className="h-5 w-5 text-cyan-500" />
-                    <span className="text-sm text-gray-600">Humidity</span>
+                  <div className="mt-6 bg-white rounded-xl p-4 shadow-md">
+                    <p className="text-sm text-gray-600 mb-1">Rainfall Status</p>
+                    <p className="text-2xl font-bold text-blue-600">{weatherData.rainfall}</p>
                   </div>
-                  <p className="text-3xl font-bold text-gray-900">{weatherData.humidity}%</p>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Wind className="h-5 w-5 text-gray-500" />
-                    <span className="text-sm text-gray-600">Wind Speed</span>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{weatherData.windSpeed} km/h</p>
-                </div>
-              </div>
-
-              <div className="mt-6 bg-white rounded-xl p-4 shadow-md">
-                <p className="text-sm text-gray-600 mb-1">Rainfall Status</p>
-                <p className="text-2xl font-bold text-blue-600">{weatherData.rainfall}</p>
-              </div>
+                </>
+              )}
             </div>
 
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-8 border-2 border-purple-200">
@@ -225,46 +318,26 @@ export default function FarmingCalendar() {
             </div>
           </div>
 
-          {loading ? (
+          {calendarLoading && (
             <div className="flex justify-center items-center py-20">
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-green-600 border-t-transparent"></div>
             </div>
-          ) : Object.keys(groupedData).length === 0 ? (
-            <div className="text-center py-20 bg-white rounded-2xl shadow-lg">
-              <p className="text-2xl text-gray-600">No activities scheduled for {months[selectedMonth - 1]}</p>
-            </div>
-          ) : (
-            <div className="grid gap-6">
-              {Object.entries(groupedData).map(([cropName, activities]) => (
-                <div
-                  key={cropName}
-                  className="bg-white rounded-2xl shadow-lg overflow-hidden border-2 border-green-100 hover:shadow-2xl transition-shadow"
-                >
-                  <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4">
-                    <h3 className="text-2xl font-bold">{cropName}</h3>
-                    <p className="text-sm opacity-90">{activities[0].season}</p>
-                  </div>
+          )}
 
-                  <div className="p-6 space-y-4">
-                    {activities.map((activity) => (
-                      <div
-                        key={activity.id}
-                        className="flex items-start space-x-4 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl"
-                      >
-                        <div className="w-3 h-3 bg-green-600 rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1">
-                          <h4 className="text-xl font-bold text-gray-900 mb-2">
-                            {activity.activity}
-                          </h4>
-                          <p className="text-gray-600 leading-relaxed">
-                            {activity.description}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+          {!calendarLoading && calendarError && (
+            <div className="text-center py-20 bg-white rounded-2xl shadow-lg">
+              <p className="text-2xl text-red-600">{calendarError}</p>
+            </div>
+          )}
+
+          {!calendarLoading && !calendarError && calendarText && (
+            <div className="bg-white rounded-2xl shadow-lg border-2 border-green-100 p-6 md:p-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                Farming Calendar for {months[selectedMonth - 1]} (Nigeria)
+              </h3>
+              <div className="prose max-w-none text-gray-800 whitespace-pre-line">
+                {calendarText}
+              </div>
             </div>
           )}
         </div>

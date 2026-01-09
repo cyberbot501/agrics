@@ -30,8 +30,8 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
             {/* <Sprout className="h-8 w-8 text-green-600" /> */}
             <img src={logo} alt=""  width={50} height={50}/>
             <div className='flex flex-col'>
-                <span className="text-2xl font-bold text-green-700">Olupo Agriculture</span>
-            <p className="text-sm text-gray-600">Production Nigeria Limited</p>
+                <span className="text-2xl font-bold text-green-700">Olupo Agricultural</span>
+            <p className="text-sm text-gray-600">Products Nigeria Limited</p>
             </div>
           </div>
 
